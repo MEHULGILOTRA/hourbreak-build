@@ -1,0 +1,46 @@
+name: Build HourBreak Intel DMG
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Restore reviewed source snapshot
+        run: |
+          mkdir source
+          unzip -q ./*build-package.zip -d source
+          test "$(shasum -a 256 source/main.swift | awk '{print $1}')" = d85ce52da2ff17ee6c12539fbe7741ed8e47bcf1a6300729e2465b2b97e7f1bf
+          test "$(shasum -a 256 source/Info.plist | awk '{print $1}')" = 49b98be0711dbd5530f0f9f8b76ff07ddaca8e8381d1bbc02ff3c324a704b5ac
+      - name: Compile, test, sign and verify actual disk image
+        run: bash source/build-dmg.sh
+      - name: Native UI smoke check
+        continue-on-error: true
+        run: |
+          open source/out/HourBreak.app
+          sleep 3
+          pgrep -x HourBreak
+          osascript -e 'tell application "System Events" to tell process "HourBreak" to click menu bar item 1 of menu bar 1'
+          screencapture -x source/out/menu.png
+          osascript -e 'tell application "System Events" to tell process "HourBreak" to click menu item "Take a Break Now" of menu 1 of menu bar item 1 of menu bar 1'
+          sleep 2
+          screencapture -x source/out/break.png
+          osascript -e 'tell application "System Events" to keystroke "b" using {control down, option down, command down}'
+          sleep 2
+          screencapture -x source/out/after-break.png
+          pkill -x HourBreak
+      - name: Preserve verified DMG and available UI evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: HourBreak-1.1.0-Intel
+          retention-days: 3
+          if-no-files-found: error
+          path: |
+            source/out/HourBreak-1.1.0-Intel.dmg
+            source/out/SHA256.txt
+            source/out/*.png
