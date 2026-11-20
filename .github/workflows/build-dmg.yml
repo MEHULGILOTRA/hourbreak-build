@@ -18,7 +18,9 @@ jobs:
           test "$(shasum -a 256 source/main.swift | awk '{print $1}')" = d85ce52da2ff17ee6c12539fbe7741ed8e47bcf1a6300729e2465b2b97e7f1bf
           test "$(shasum -a 256 source/Info.plist | awk '{print $1}')" = 49b98be0711dbd5530f0f9f8b76ff07ddaca8e8381d1bbc02ff3c324a704b5ac
       - name: Compile, test, sign and verify actual disk image
-        run: bash source/build-dmg.sh
+        run: |
+          python3 -c 'from pathlib import Path; p=Path("source/build-dmg.sh"); s=p.read_text(); p.write_text(s.replace("lipo -verify_arch x86_64 ", "lipo ").replace("lipo \"$APP/Contents/MacOS/HourBreak\"", "lipo \"$APP/Contents/MacOS/HourBreak\" -verify_arch x86_64"))'
+          bash source/build-dmg.sh
       - name: Native UI smoke check
         continue-on-error: true
         run: |
